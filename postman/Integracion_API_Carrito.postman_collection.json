@@ -1,0 +1,512 @@
+{
+ "info": {
+  "name": "Integración API - Carrito o Servicios",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "event": [
+  {
+   "listen": "test",
+   "script": {
+    "type": "text/javascript",
+    "exec": [
+     "pm.test('Tiempo de respuesta < 1000 ms', function () { pm.expect(pm.response.responseTime).to.be.below(1000); });",
+     "pm.test('Respuesta es JSON', function () { pm.response.to.be.json; });"
+    ]
+   }
+  }
+ ],
+ "item": [
+  {
+   "name": "Catálogo",
+   "item": [
+    {
+     "name": "GET Productos",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+         "pm.test('Lista no vacia', function () { const p = pm.response.json().products; pm.expect(p).to.be.an('array'); pm.expect(p.length).to.be.above(0); });",
+         "pm.test('Contrato id, title, price', function () { const x = pm.response.json().products[0]; pm.expect(x.id).to.be.a('number'); pm.expect(x.title).to.be.a('string'); pm.expect(x.price).to.be.a('number'); });",
+         "const x = pm.response.json().products[0]; pm.environment.set('product_id', x.id); pm.environment.set('product_price', x.price);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/products?limit=5",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "products"
+       ],
+       "query": [
+        {
+         "key": "limit",
+         "value": "5"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Carrito",
+   "item": [
+    {
+     "name": "POST Crear carrito",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+         "pm.test('Contrato id, productos y total', function () { const c = pm.response.json(); pm.expect(c.id).to.exist; pm.expect(c.products).to.be.an('array'); pm.expect(c.total).to.be.a('number'); });",
+         "pm.test('Cantidad = 2', function () { pm.expect(pm.response.json().products[0].quantity).to.eql(2); });",
+         "const c = pm.response.json(); pm.environment.set('cart_id', c.id); pm.environment.set('cart_total', c.total);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/carts/add",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "carts",
+        "add"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"userId\":1,\"products\":[{\"id\":{{product_id}},\"quantity\":2}]}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Total",
+   "item": [
+    {
+     "name": "GET Producto y validar total",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+         "pm.test('Precio igual al guardado', function () { pm.expect(pm.response.json().price).to.eql(Number(pm.environment.get('product_price'))); });",
+         "pm.test('Total del carrito = precio x 2', function () { const e = pm.response.json().price * 2; pm.expect(Math.abs(Number(pm.environment.get('cart_total')) - e)).to.be.below(0.01); });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/products/{{product_id}}",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "products",
+        "{{product_id}}"
+       ]
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Checkout",
+   "item": [
+    {
+     "name": "POST Login (guarda token)",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+         "pm.test('Devuelve token', function () { const j = pm.response.json(); pm.expect(j.accessToken || j.token).to.be.a('string').and.not.empty; });",
+         "const j = pm.response.json(); pm.environment.set('token', j.accessToken || j.token);"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/login",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "login"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET Perfil con token",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+         "pm.test('Usuario autenticado', function () { pm.expect(pm.response.json().username).to.eql(pm.environment.get('username')); });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/auth/me",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "me"
+       ]
+      }
+     }
+    },
+    {
+     "name": "POST Checkout simulado",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 201', function () { pm.response.to.have.status(201); });",
+         "pm.test('userId = 1', function () { pm.expect(pm.response.json().userId).to.eql(1); });",
+         "pm.test('totalQuantity = 2', function () { pm.expect(pm.response.json().totalQuantity).to.eql(2); });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{token}}"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/carts/add",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "carts",
+        "add"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"userId\":1,\"products\":[{\"id\":{{product_id}},\"quantity\":2}]}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "Errores",
+   "item": [
+    {
+     "name": "GET Producto inexistente",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 404', function () { pm.response.to.have.status(404); });",
+         "pm.test('Mensaje de error claro', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/products/999999",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "products",
+        "999999"
+       ]
+      }
+     }
+    },
+    {
+     "name": "POST Cantidad cero",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Rechaza con 4xx', function () { pm.expect(pm.response.code).to.be.within(400,499); });",
+         "pm.test('Mensaje de error claro', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/carts/add",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "carts",
+        "add"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"userId\":1,\"products\":[{\"id\":{{product_id}},\"quantity\":0}]}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST Cantidad negativa",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Rechaza con 4xx', function () { pm.expect(pm.response.code).to.be.within(400,499); });",
+         "pm.test('Mensaje de error claro', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/carts/add",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "carts",
+        "add"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"userId\":1,\"products\":[{\"id\":{{product_id}},\"quantity\":-1}]}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST Body incompleto",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Rechaza con 4xx', function () { pm.expect(pm.response.code).to.be.within(400,499); });",
+         "pm.test('Mensaje de error claro', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/carts/add",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "carts",
+        "add"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"products\":[{\"id\":1,\"quantity\":1}]}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "POST Tipo de dato incorrecto",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Rechaza con 4xx', function () { pm.expect(pm.response.code).to.be.within(400,499); });",
+         "pm.test('Mensaje de error claro', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": {
+       "raw": "{{base_url}}/carts/add",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "carts",
+        "add"
+       ]
+      },
+      "body": {
+       "mode": "raw",
+       "raw": "{\"userId\":1,\"products\":[{\"id\":1,\"quantity\":\"abc\"}]}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "GET Perfil sin token",
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('Status 401', function () { pm.response.to.have.status(401); });",
+         "pm.test('Mensaje de error claro', function () { pm.expect(pm.response.json().message).to.be.a('string').and.not.empty; });"
+        ]
+       }
+      }
+     ],
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": {
+       "raw": "{{base_url}}/auth/me",
+       "host": [
+        "{{base_url}}"
+       ],
+       "path": [
+        "auth",
+        "me"
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}
